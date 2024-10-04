@@ -28,6 +28,27 @@ resource "aws_iam_role" "eks_role" {
   })
 }
 
+resource "aws_iam_policy" "eks_policy" {
+  name        = "EKSFullAccessPolicy"
+  description = "A policy that allows full access to EKS services."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "eks:*"
+        Resource = "*"
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_role_attachment" {
+  role       = aws_iam_role.eks_role.name
+  policy_arn = aws_iam_policy.eks_policy.arn
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
