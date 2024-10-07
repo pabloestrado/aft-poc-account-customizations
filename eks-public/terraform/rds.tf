@@ -1,12 +1,12 @@
-# module "sg" {
-#   source = "terraform-aws-modules/security-group/aws//modules/mysql"
+module "sg" {
+  source = "terraform-aws-modules/security-group/aws//modules/mysql"
 
-#   name        = "web-server"
-#   description = "Security group for web-server with HTTP ports open within VPC"
-#   vpc_id      = module.vpc.vpc_id
+  name        = "web-server"
+  description = "Security group for web-server with HTTP ports open within VPC"
+  vpc_id      = module.vpc.vpc_id
 
-#   ingress_cidr_blocks = module.vpc.private_subnets_cidr_blocks
-# }
+  ingress_cidr_blocks = module.vpc.private_subnets_cidr_blocks
+}
 
 # module "db" {
 #   source = "terraform-aws-modules/rds/aws"
