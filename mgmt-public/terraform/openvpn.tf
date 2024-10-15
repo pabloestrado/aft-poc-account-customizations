@@ -42,3 +42,33 @@ output "openvpn" {
   } : null
   sensitive = true
 }
+
+# Store credentials in secret as we cant run "terraform output" locally
+module "secret" {
+  count   = var.install_openvpnas ? 1 : 0
+  source  = "terraform-aws-modules/secrets-manager/aws"
+  version = "~> 1.3.0"
+
+  name        = "${local.basename}-openvpn" # Name of the secret
+  description = "MGMT openvpn password"     # Description of the secret
+  secret_string = jsonencode({
+    public_ip  = module.openvpn[0].public_ip
+    admin_user = module.openvpn[0].admin_user
+    admin_pass = module.openvpn[0].admin_pass
+    admin_url  = var.vpn_create_ssl ? "https://vpn.${local.basename}/admin/" : "https://${module.openvpn[0].public_ip}/admin/"
+  })
+
+  create_policy       = true
+  block_public_policy = true
+  policy_statements = {
+    read = {
+      sid = "AllowAccountRead"
+      principals = [{
+        type        = "AWS"
+        identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.id}:root"]
+      }]
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = ["*"]
+    }
+  }
+}
