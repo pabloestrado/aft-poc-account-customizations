@@ -6,7 +6,10 @@ module "vpc" {
   cidr = local.vpc_cidr
   ipv6 = var.vpc_ipv6_cidr
 
-  tags = local.base_tags
+  tags = merge(local.base_tags, {
+    Associate-with = "Infrastructure"
+    Propagate-to   = "On-premises, Isolated, Infrastructure, Flat"
+  })
 }
 
 
@@ -54,7 +57,8 @@ module "private-subnets" {
   ipv6_prefix = module.vpc.vpc.ipv6_cidr
 
   tags = merge(local.base_tags, {
-    Tier = "Private"
+    Tier          = "Private"
+    Attach-to-tgw = ""
   })
 }
 
