@@ -10,6 +10,15 @@ module "vpc" {
 
   enable_nat_gateway = true
   single_nat_gateway = true
+
+  vpc_tags = {
+    Associate-with = "Infrastructure"
+    Propagate-to   = "On-premises, Isolated, Infrastructure, Flat"
+  }
+
+  private_subnet_tags = {
+    Attach-to-tgw = ""
+  }
 }
 
 locals {
@@ -19,4 +28,3 @@ locals {
   vpc_public_subnets  = cidrsubnets(local.vpc_public_cidr, 2, 2, 2)
   vpc_private_subnets = cidrsubnets(local.vpc_private_cidr, 2, 2, 2)
 }
-
