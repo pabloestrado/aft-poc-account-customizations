@@ -31,9 +31,8 @@ module "ipam" {
 
       sub_pools = {
         management = {
-          netmask_length       = 13
-          name                 = "management"
-          ram_share_principals = ["390403900367"]
+          netmask_length = 13
+          name           = "management"
           sub_pools = {
             mgmt = {
               name           = "mgmt"
