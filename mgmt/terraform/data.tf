@@ -18,7 +18,6 @@ data "aws_ssm_parameter" "vpc_cidr" {
   name = "/aft/account-request/custom-fields/vpc_cidr"
 }
 
-
 locals {
   zone_names = slice(data.aws_availability_zones.aws-azs.names, 0, var.total_azs)
 }
