@@ -1,48 +1,98 @@
-module "ipam" {
-  source = "aws-ia/ipam/aws"
-  # See https://github.com/aws-ia/terraform-aws-ipam/blob/main/examples/single_scope_ipv4/main.tf
-
-  top_cidr = ["10.192.0.0/10"]
-  top_name = local.basename
-
-  pool_configurations = {
-    eu-west-2 = {
-      description = "eu-west-2 pool"
-      cidr        = ["10.192.0.0/11"]
-      locale      = data.aws_region.current.id
-      sub_pools = {
-        management = {
-          netmask_length = 13
-          name           = "Management"
-          tags = {
-            env = "management"
-          }
-        }
-
-        sandbox = {
-          name                 = "Sandbox"
-          netmask_length       = 13
-          ram_share_principals = ["arn:aws:organizations::444629336067:ou/o-mmrpss74fy/ou-2ure-5cusy3i7"]
-          tags = {
-            env = "sandbox"
-          }
-        }
-
-        dev = {
-          name           = "Dev"
-          netmask_length = 14
-          tags = {
-            env = "dev"
-          }
-        }
-        prod = {
-          name           = "Prod"
-          netmask_length = 14
-          tags = {
-            env = "prod"
-          }
-        }
-      }
-    }
+resource "aws_vpc_ipam" "ipam" {
+  description = local.basename
+  operating_regions {
+    region_name = data.aws_region.current.name
   }
+}
+
+# Parrent base pool
+resource "aws_vpc_ipam_pool" "base" {
+  description    = local.basename
+  address_family = "ipv4"
+  ipam_scope_id  = aws_vpc_ipam.ipam.private_default_scope_id
+  locale         = data.aws_region.current.name
+
+  tags = merge(local.base_tags, {
+    Name = local.basename
+  })
+}
+
+resource "aws_vpc_ipam_pool_cidr" "base" {
+  ipam_pool_id = aws_vpc_ipam_pool.base.id
+  cidr         = "10.192.0.0/10"
+}
+
+# Management pool
+resource "aws_vpc_ipam_pool" "mgmt" {
+  description                       = "Management"
+  address_family                    = "ipv4"
+  ipam_scope_id                     = aws_vpc_ipam.ipam.private_default_scope_id
+  locale                            = data.aws_region.current.name
+  source_ipam_pool_id               = aws_vpc_ipam_pool.base.id
+  allocation_default_netmask_length = 16
+
+  tags = merge(local.base_tags, {
+    Name = "mgmt"
+  })
+}
+
+resource "aws_vpc_ipam_pool_cidr" "mgmt" {
+  ipam_pool_id   = aws_vpc_ipam_pool.mgmt.id
+  netmask_length = 12
+}
+
+# Production pool
+resource "aws_vpc_ipam_pool" "prod" {
+  description                       = "Production"
+  address_family                    = "ipv4"
+  ipam_scope_id                     = aws_vpc_ipam.ipam.private_default_scope_id
+  locale                            = data.aws_region.current.name
+  source_ipam_pool_id               = aws_vpc_ipam_pool.base.id
+  allocation_default_netmask_length = 16
+
+  tags = merge(local.base_tags, {
+    Name = "prod"
+  })
+}
+
+resource "aws_vpc_ipam_pool_cidr" "prod" {
+  ipam_pool_id   = aws_vpc_ipam_pool.prod.id
+  netmask_length = 12
+}
+
+
+# Development pool
+resource "aws_vpc_ipam_pool" "dev" {
+  description                       = "Development"
+  address_family                    = "ipv4"
+  ipam_scope_id                     = aws_vpc_ipam.ipam.private_default_scope_id
+  locale                            = data.aws_region.current.name
+  source_ipam_pool_id               = aws_vpc_ipam_pool.base.id
+  allocation_default_netmask_length = 16
+
+  tags = merge(local.base_tags, {
+    Name = "dev"
+  })
+}
+
+resource "aws_vpc_ipam_pool_cidr" "dev" {
+  ipam_pool_id   = aws_vpc_ipam_pool.dev.id
+  netmask_length = 12
+}
+
+
+# Share dev pool with sandbox OU
+resource "aws_ram_resource_share" "ipam_pool_dev" {
+  name                      = "ipam-pool-dev"
+  allow_external_principals = false
+}
+
+resource "aws_ram_resource_association" "ipam_pool_dev" {
+  resource_arn       = aws_vpc_ipam_pool.dev.arn
+  resource_share_arn = aws_ram_resource_share.ipam_pool_dev.arn
+}
+
+resource "aws_ram_principal_association" "ipam_pool_dev" {
+  principal          = "arn:aws:organizations::444629336067:ou/o-mmrpss74fy/ou-2ure-5cusy3i7"
+  resource_share_arn = aws_ram_resource_share.ipam_pool_dev.arn
 }
