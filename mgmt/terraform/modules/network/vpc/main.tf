@@ -1,7 +1,12 @@
 ### VPC
 resource "aws_vpc" "vpc" {
-  cidr_block                       = var.cidr
-  assign_generated_ipv6_cidr_block = var.ipv6
+  cidr_block          = var.cidr
+  ipv4_ipam_pool_id   = var.ipam_pool_id
+  ipv4_netmask_length = var.netmask_length
+  ipv6_ipam_pool_id   = var.ipv6_ipam_pool_id
+  ipv6_netmask_length = var.ipv6_netmask_length
+
+  assign_generated_ipv6_cidr_block = var.ipv6_ipam_pool_id != null ? null : var.ipv6
 
   enable_dns_hostnames = true
 

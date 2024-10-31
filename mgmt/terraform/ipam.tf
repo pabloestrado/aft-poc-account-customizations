@@ -80,7 +80,6 @@ resource "aws_vpc_ipam_pool_cidr" "dev" {
   netmask_length = 12
 }
 
-
 # Share dev pool with sandbox OU
 resource "aws_ram_resource_share" "ipam_pool_dev" {
   name                      = "ipam-pool-dev"
