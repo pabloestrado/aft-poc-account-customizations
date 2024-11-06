@@ -19,7 +19,7 @@
 module "mgmt-vpc" {
   source = "./modules/network/vpc"
 
-  name           = local.basename
+  name           = "mgmt"
   ipam_pool_id   = aws_vpc_ipam_pool.mgmt.id
   netmask_length = 16
   ipv6           = true
@@ -32,7 +32,7 @@ module "mgmt-vpc" {
 module "mgmt-public-subnets" {
   source = "./modules/network/subnets/"
 
-  name = local.basename
+  name = "mgmt-public"
   type = "Public"
 
   vpc_id = module.mgmt-vpc.vpc.id
@@ -54,18 +54,16 @@ module "mgmt-public-subnets" {
 module "mgmt-private-subnets" {
   source = "./modules/network/subnets/"
 
-  name = local.basename
-  type = "Private"
+  name = "mgmt-private"
+  type = "Isolated"
 
   vpc_id = module.mgmt-vpc.vpc.id
-
-  one_nat = false
-
-  nat_subnets = module.mgmt-public-subnets.subnets.ids
 
   zones  = local.zone_names
   prefix = module.mgmt-vpc.vpc.ipv4_cidr
   base   = 3
+
+  route_table = [aws_route_table.mgmt-isolated.id]
 
   ipv6        = true
   ipv6_prefix = module.mgmt-vpc.vpc.ipv6_cidr
@@ -77,36 +75,43 @@ module "mgmt-private-subnets" {
 }
 
 
-module "vpc" {
-  source = "./modules/network/vpc"
+# resource "aws_route" "mgmt-default" {
+#   route_table_id         = module.mgmt-private-subnets.route_table.id.0
+#   transit_gateway_id     = module.tgw.ec2_transit_gateway_id
+#   destination_cidr_block = "0.0.0.0/0"
+# }
 
-  name           = local.basename
-  ipam_pool_id   = aws_vpc_ipam_pool.mgmt.id
-  netmask_length = 16
-  ipv6           = false
-
-  tags = local.base_tags
-}
-
-# VPC Subnets: Public
-module "public-subnets" {
-  source = "./modules/network/subnets/"
-
-  name = local.basename
-  type = "Public"
-
-  vpc_id = module.vpc.vpc.id
-  igw_id = module.vpc.igw.id
-
-  zones  = local.zone_names
-  prefix = module.vpc.vpc.ipv4_cidr
-  base   = 0
-
-  ipv6        = false
-  ipv6_prefix = module.vpc.vpc.ipv6_cidr
+resource "aws_ec2_transit_gateway_vpc_attachment" "mgmt" {
+  subnet_ids         = module.mgmt-private-subnets.subnets.ids
+  transit_gateway_id = module.tgw.ec2_transit_gateway_id
+  vpc_id             = module.mgmt-vpc.vpc.id
   tags = merge(local.base_tags, {
-    Tier                     = "Public"
-    "kubernetes.io/role/elb" = "1"
+    Name = "mgmt"
   })
 }
 
+resource "aws_ec2_transit_gateway_route_table_association" "mgmt" {
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.mgmt.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.inspection.id
+}
+
+resource "aws_ec2_transit_gateway_route_table_propagation" "mgmt" {
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.mgmt.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.firewall.id
+}
+
+resource "aws_route_table" "mgmt-isolated" {
+  vpc_id = module.mgmt-vpc.vpc.id
+
+  route {
+    cidr_block         = "0.0.0.0/0"
+    transit_gateway_id = module.tgw.ec2_transit_gateway_id
+  }
+
+  tags = merge(
+    local.base_tags,
+    {
+      Name = "mgmt-isolated-rtb"
+    }
+  )
+}

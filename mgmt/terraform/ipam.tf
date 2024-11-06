@@ -95,3 +95,21 @@ resource "aws_ram_principal_association" "ipam_pool_dev" {
   principal          = "arn:aws:organizations::444629336067:ou/o-mmrpss74fy/ou-2ure-5cusy3i7"
   resource_share_arn = aws_ram_resource_share.ipam_pool_dev.arn
 }
+
+
+# Parrent base pool
+resource "aws_vpc_ipam_pool" "cgnat" {
+  description    = "CGNAT"
+  address_family = "ipv4"
+  ipam_scope_id  = aws_vpc_ipam.ipam.private_default_scope_id
+  locale         = data.aws_region.current.name
+
+  tags = merge(local.base_tags, {
+    Name = "CGNAT"
+  })
+}
+
+resource "aws_vpc_ipam_pool_cidr" "cgnat" {
+  ipam_pool_id = aws_vpc_ipam_pool.cgnat.id
+  cidr         = "100.64.0.0/10"
+}
