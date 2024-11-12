@@ -122,7 +122,7 @@ module "inspection-firewall-subnets" {
 
   ipv6        = false
   ipv6_prefix = module.inspection-vpc.vpc.ipv6_cidr
-  route_table = [aws_route_table.inspection-tgw.id]
+  route_table = [aws_route_table.inspection-firewall.id]
 }
 
 
@@ -139,6 +139,24 @@ resource "aws_route_table" "inspection-tgw" {
   vpc_id = module.inspection-vpc.vpc.id
 
   route {
+    cidr_block      = "0.0.0.0/0"
+    vpc_endpoint_id = tolist(tolist(module.network_firewall.status.0.sync_states).0.attachment).0.endpoint_id
+  }
+
+  tags = merge(
+    local.base_tags,
+    {
+      Name = "mgmt-tgw-isolated-rtb"
+    }
+  )
+
+  depends_on = [module.network_firewall]
+}
+
+resource "aws_route_table" "inspection-firewall" {
+  vpc_id = module.inspection-vpc.vpc.id
+
+  route {
     cidr_block         = "0.0.0.0/0"
     transit_gateway_id = module.tgw.ec2_transit_gateway_id
   }
@@ -146,7 +164,7 @@ resource "aws_route_table" "inspection-tgw" {
   tags = merge(
     local.base_tags,
     {
-      Name = "mgmt-isolated-rtb"
+      Name = "mgmt-firewall-rtb"
     }
   )
 }
@@ -190,7 +208,7 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "egress" {
   })
 }
 
-### Inspection route table
+### TGW Inspection route table
 resource "aws_ec2_transit_gateway_route_table" "inspection" {
   transit_gateway_id = module.tgw.ec2_transit_gateway_id
   tags = merge({
@@ -206,7 +224,7 @@ resource "aws_ec2_transit_gateway_route" "inspection_catchall_route" {
 }
 ###
 
-### Firewall routing table
+### TGW Firewall routing table
 resource "aws_ec2_transit_gateway_route_table" "firewall" {
   transit_gateway_id = module.tgw.ec2_transit_gateway_id
   tags = merge({
@@ -244,7 +262,36 @@ resource "aws_ec2_transit_gateway_route_table_propagation" "egress" {
 ###
 
 
-### Egress routing table
+### Firewall ###
+resource "aws_cloudwatch_log_group" "firewall" {
+  name = "/aws/network-firewall/inspection-firewall"
+}
 
+module "network_firewall" {
+  source = "terraform-aws-modules/network-firewall/aws"
 
-###
+  # Firewall
+  name        = "inspection-firewall"
+  description = "Network firewall"
+
+  vpc_id = module.inspection-vpc.vpc.id
+  subnet_mapping = {
+    subnet0 = {
+      subnet_id       = module.inspection-firewall-subnets.subnets.ids.0
+      ip_address_type = "IPV4"
+    }
+  }
+
+  # Logging configuration
+  create_logging_configuration = true
+  logging_configuration_destination_config = [
+    {
+      log_destination = {
+        logGroup = aws_cloudwatch_log_group.firewall.id
+      }
+      log_destination_type = "CloudWatchLogs"
+      log_type             = "FLOW"
+    }
+  ]
+}
+### End Firewall ###
