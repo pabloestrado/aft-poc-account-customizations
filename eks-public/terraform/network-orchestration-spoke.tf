@@ -7,5 +7,4 @@ resource "aws_cloudformation_stack" "spoke" {
   parameters = {
     HubAccount = "390403900367"
   }
-
 }
