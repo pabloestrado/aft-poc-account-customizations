@@ -204,7 +204,7 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "egress" {
   transit_gateway_id = module.tgw.ec2_transit_gateway_id
   vpc_id             = module.egress-vpc.vpc.id
   tags = merge(local.base_tags, {
-    Name = "inspection"
+    Name = "egress"
   })
 }
 
